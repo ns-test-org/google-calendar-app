@@ -1,84 +1,131 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { CalendarHeader } from '@/components/CalendarHeader';
+import { CalendarGrid } from '@/components/CalendarGrid';
+import { EventModal } from '@/components/EventModal';
+import { CalendarEvent } from '@/types/calendar';
 
-const slogans = [
-  "Turn chats into apps",
-  "Prompt. Ship. Repeat.",
-  "Build anything from a chat",
-  "Ideas → Apps, instantly",
-  "From zero to MVP in minutes",
-  "Your cofounder in the command line",
-  "Draft, iterate, deploy",
-  "Ship faster than you can type",
-  "Design in text, deliver in code",
-  "Dream it. Prompt it. Run it.",
-  "Chat-native app building",
-  "From prompt to product",
-  "One prompt, infinite apps",
-  "Stop scaffolding. Start shipping.",
-  "Prototype at the speed of thought",
-  "Make conversations executable"
-];
+export default function Home() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState<'month' | 'week' | 'day'>('month');
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-export default function Landing() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
-
+  // Load events from localStorage on mount
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIsVisible(false);
-      setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % slogans.length);
-        setIsVisible(true);
-      }, 400);
-    }, 2800);
-
-    return () => clearInterval(interval);
+    const savedEvents = localStorage.getItem('calendar-events');
+    if (savedEvents) {
+      const parsedEvents = JSON.parse(savedEvents).map((event: any) => ({
+        ...event,
+        start: new Date(event.start),
+        end: new Date(event.end),
+      }));
+      setEvents(parsedEvents);
+    }
   }, []);
 
+  // Save events to localStorage whenever events change
+  useEffect(() => {
+    localStorage.setItem('calendar-events', JSON.stringify(events));
+  }, [events]);
+
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    setSelectedEvent(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setSelectedDate(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveEvent = (eventData: Omit<CalendarEvent, 'id'>) => {
+    if (selectedEvent) {
+      // Update existing event
+      setEvents(events.map(event => 
+        event.id === selectedEvent.id 
+          ? { ...eventData, id: selectedEvent.id }
+          : event
+      ));
+    } else {
+      // Create new event
+      const newEvent: CalendarEvent = {
+        ...eventData,
+        id: Date.now().toString(),
+      };
+      setEvents([...events, newEvent]);
+    }
+    setIsModalOpen(false);
+    setSelectedEvent(null);
+    setSelectedDate(null);
+  };
+
+  const handleDeleteEvent = (eventId: string) => {
+    setEvents(events.filter(event => event.id !== eventId));
+    setIsModalOpen(false);
+    setSelectedEvent(null);
+  };
+
+  const navigateDate = (direction: 'prev' | 'next') => {
+    const newDate = new Date(currentDate);
+    
+    if (view === 'month') {
+      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+    } else if (view === 'week') {
+      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
+    } else {
+      newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
+    }
+    
+    setCurrentDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-black text-white">
-      {/* Enhanced animated aurora background layers */}
-      <div className="absolute inset-0 bg-aurora-layer-1" />
-      <div className="absolute inset-0 bg-aurora-layer-2" />
-      <div className="absolute inset-0 bg-aurora-layer-3" />
+    <div className="min-h-screen bg-white">
+      <CalendarHeader
+        currentDate={currentDate}
+        view={view}
+        onViewChange={setView}
+        onNavigate={navigateDate}
+        onToday={goToToday}
+        onCreateEvent={() => {
+          setSelectedDate(new Date());
+          setSelectedEvent(null);
+          setIsModalOpen(true);
+        }}
+      />
       
-      {/* Floating particles overlay */}
-      <div className="absolute inset-0 bg-particles" />
-      
-      {/* Main content - centered */}
-      <main className="relative z-10 h-full flex flex-col items-center justify-center px-6">
-        <h1 className="text-center text-[clamp(28px,6vw,64px)] font-medium tracking-tight mb-4">
-          Turn Chats into Apps
-        </h1>
-        
-        {/* Rotating slogans */}
-        <div className="mt-4 h-8 md:h-10 overflow-hidden flex items-center justify-center">
-          <span
-            className={`inline-block text-center text-[clamp(18px,3vw,32px)] font-light transition-all duration-[400ms] ease-in-out ${
-              isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
-            }`}
-          >
-            {slogans[currentIndex]}
-          </span>
-        </div>
-      </main>
-      
-      {/* Start Prompting arrow pointing left - bottom left */}
-      <div className="absolute left-6 md:left-8 bottom-[5%] z-20 flex items-center gap-3 arrow-point-left">
-        <div className="flex items-center gap-2 text-white/80 font-medium text-sm md:text-base">
-          <svg 
-            className="w-5 h-5 md:w-6 md:h-6 animate-bounce-horizontal" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          <span>Start prompting</span>
-        </div>
-      </div>
+      <CalendarGrid
+        currentDate={currentDate}
+        view={view}
+        events={events}
+        onDateClick={handleDateClick}
+        onEventClick={handleEventClick}
+      />
+
+      {isModalOpen && (
+        <EventModal
+          event={selectedEvent}
+          selectedDate={selectedDate}
+          onSave={handleSaveEvent}
+          onDelete={selectedEvent ? () => handleDeleteEvent(selectedEvent.id) : undefined}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedEvent(null);
+            setSelectedDate(null);
+          }}
+        />
+      )}
     </div>
   );
 }
+
